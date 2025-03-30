@@ -1,0 +1,168 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Profile {
+  id String @id @default(uuid())
+  userId String @unique
+  name String
+  imageUrl String @db.Text
+  email String @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  servers Server[] //Lists all servers owned/created by this user
+  members Member[] //All the memberships that THIS user has across different servers
+  channels Channel[]
+}
+
+model Server {
+  id String @id @default(uuid())
+  name String
+  imageUrl String @db.Text
+  inviteCode String @unique
+
+  profileId String // server owner
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members Member[] // members that are part of this server
+  channels Channel[]
+
+  @@index([profileId]) // creates an index on profileId
+
+}
+
+
+enum Role {
+  ADMIN
+  MODERATOR
+  GUEST
+}
+
+model Member {
+  // ach Member record represents a user's membership in a specific server
+  id String @id @default(uuid())
+  role Role @default(GUEST)
+
+  profileId String // user who is a member of a server
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  serverId String
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  conversationMessages ConversationMessage[]
+
+  // any member can start and recieve multiple conversations with other members
+  conversationsInitiated Converation[] @relation("memberOne")
+  conversationsReceived Converation[] @relation("memberTwo")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId])
+  @@index([serverId])
+}
+
+enum channelType {
+  TEXT
+  AUDIO
+  VIDEO
+}
+
+model Channel {
+  id String @id @default(uuid())
+  name String
+  type channelType @default(TEXT)
+
+  profileId String
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  serverId String
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  @@index([profileId])
+  @@index([serverId])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// this model is used for channel messages
+model Message {
+  id String @id @default(uuid())
+  content String @db.Text
+  fileUrl String? @db.Text
+
+  channelId String
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  memberId String
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  delete Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([channelId])
+  @@index([memberId])
+}
+
+model Converation {
+  id String @id @default(uuid())
+
+  memberOneId String
+  // give the relation a name as we have multiple relation to Member model to avoid ambiguity
+  memberOne Member @relation("memberOne", fields: [memberOneId], references: [id], onDelete: Cascade)
+
+  memberTwoId String
+  memberTwo Member @relation("memberTwo", fields: [memberTwoId], references: [id], onDelete: Cascade)
+
+  conversationMessages ConversationMessage[]
+
+  @@index([memberOneId])
+  @@index([memberTwoId])
+
+  // a member cannot have a conversation with himself 
+  @@unique([memberOneId, memberTwoId])
+}
+
+// this model is used for members messages
+model ConversationMessage {
+  id String @id @default(uuid())
+  content String @db.Text
+  fileUrl String? @db.Text
+
+  conversationId String
+  conversation Converation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  memberId String
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  delete Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+
+  @@index([conversationId])
+  @@index([memberId])
+}
