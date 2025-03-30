@@ -19,7 +19,7 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponseIoSocket) => {
             addTrailingSlash: false,
             transports: ['polling', 'websocket'],
             cors: {
-                origin: "http://localhost:3000",
+                origin: process.env.NEXT_PUBLIC_SITE_URL,
                 methods: ['GET', 'POST', "DELETE", "PATCH"],
             },
         });
